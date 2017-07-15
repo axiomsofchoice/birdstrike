@@ -33,7 +33,7 @@ type alias Arrow =
 type Hit
     = BodyHit
     | NeckHit
-
+    | NotHit
 
 type alias Bird =
     { pos : Vec
@@ -106,6 +106,7 @@ view model =
 animationRate = 100 -- Speed animation up or down to improve game play.
 gravity = 9.8       -- The acceleration due to gravity.
 
+updateArrow : Float -> Float -> Arrow -> Arrow
 updateArrow dt windSpeed arrow =
   let
    arrowPos = arrow.pos
@@ -114,7 +115,21 @@ updateArrow dt windSpeed arrow =
   in
    { arrow | pos = newArrowPos }
 
-updateBird dt bird = bird
+updateBird : Float -> Bird -> Bird
+updateBird dt bird =
+  case bird.hit of
+    -- Fall to the ground under gravity.
+    BodyHit -> bird
+    -- Also continue flying along in a straight line.
+    NeckHit -> bird
+    -- Just continue flying along in a straight line.
+    NotHit ->
+      let
+        birdPos = bird.pos
+        newBirdPos = {birdPos | x = birdPos.x + bird.dir.x * dt
+                              , y = birdPos.y + bird.dir.y * dt }
+      in
+        { bird | pos = newBirdPos }
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
