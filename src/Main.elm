@@ -110,6 +110,11 @@ main =
         }
 
 
+groundLevel : Float -> Float
+groundLevel height =
+    -height / 3
+
+
 view : Model -> Html Msg
 view model =
     let
@@ -126,20 +131,20 @@ view model =
             |> toHtml
 
 
+
+-- Speed animation up or down to improve game play.
+
+
 animationRate =
     100
 
 
 
--- Speed animation up or down to improve game play.
+-- The acceleration due to gravity.
 
 
 gravity =
     9.8
-
-
-
--- The acceleration due to gravity.
 
 
 updateArrow : Float -> Float -> Arrow -> Arrow
@@ -179,20 +184,17 @@ updateBird dt bird =
             { bird | pos = newDeadBirdPos }
     in
         case bird.hit of
+            -- Fall to the ground under gravity.
             BodyHit ->
                 deadBirdMotion
 
-            -- Fall to the ground under gravity.
+            -- Also continue flying along in a straight line.
             NeckHit ->
                 normalBirdMotion
 
-            -- Also continue flying along in a straight line.
+            -- Just continue flying along in a straight line.
             NotHit ->
                 normalBirdMotion
-
-
-
--- Just continue flying along in a straight line.
 
 
 updateKey : KeyMsg -> Model -> Model
