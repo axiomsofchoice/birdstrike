@@ -45,7 +45,7 @@ type alias Bird =
     , dir : Vec
     , bodyRadius : Float
     , neckWidth : Float
-    , neckHeight : Float
+    , neckLength : Float
     , hit : Hit
     }
 
@@ -95,7 +95,7 @@ initialModel =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ diffs ( \ dt -> Tick (dt / animationRate))
+        [ diffs (\dt -> Tick (dt / animationRate))
         , resizes WindowSize
         , downs (Key << Down)
         , ups (Key << Up)
@@ -120,31 +120,39 @@ groundLevel : Float -> Float
 groundLevel height =
     -height / 3
 
+
 buildArrowView : Arrow -> Form
 buildArrowView arrow =
-            rect 30 5
-                |> filled red
-                |> rotate (atan2 arrow.dir.y arrow.dir.x)
-                |> moveX arrow.pos.x
-                |> moveY arrow.pos.y
+    rect 30 5
+        |> filled red
+        |> rotate (atan2 arrow.dir.y arrow.dir.x)
+        |> moveX arrow.pos.x
+        |> moveY arrow.pos.y
+
 
 buildBirdView : Bird -> Form
-buildBirdView bird = circle 30 |> filled red
+buildBirdView bird =
+    circle 30 |> filled red
+
 
 view : Model -> Html Msg
 view model =
     let
-        arrowSprites = List.map buildArrowView model.arrows
-        
-        birdSprites = List.map buildBirdView model.birds
+        arrowSprites =
+            List.map buildArrowView model.arrows
+
+        birdSprites =
+            List.map buildBirdView model.birds
 
         forms =
             arrowSprites
-            --arrowSprites ++ birdSprites
+
+        --arrowSprites ++ birdSprites
     in
         forms
             |> collage model.windowSize.width 400
             |> toHtml
+
 
 
 -- Speed animation up or down to improve game play.
@@ -167,12 +175,23 @@ updateArrow dt windSpeed arrow =
     let
         arrowPos =
             arrow.pos
-        arrowDir = arrow.dir
-        newArrowPos = { arrowPos | x = arrowPos.x + (arrowDir.x - windSpeed) * dt
-                                 , y = arrowPos.y + arrowDir.y * dt }
-        newArrowDir = { arrowDir | y = arrowDir.y - gravity * dt }
+
+        arrowDir =
+            arrow.dir
+
+        newArrowPos =
+            { arrowPos
+                | x = arrowPos.x + (arrowDir.x - windSpeed) * dt
+                , y = arrowPos.y + arrowDir.y * dt
+            }
+
+        newArrowDir =
+            { arrowDir | y = arrowDir.y - gravity * dt }
     in
-      { arrow | pos = newArrowPos, dir = newArrowDir }
+        if arrow.state == Flying then
+            { arrow | pos = newArrowPos, dir = newArrowDir }
+        else
+            arrow
 
 
 updateBird : Float -> Bird -> Bird
@@ -180,6 +199,7 @@ updateBird dt bird =
     let
         birdPos =
             bird.pos
+
         birdDir =
             bird.dir
 
@@ -193,15 +213,19 @@ updateBird dt bird =
                 | x = if 1000 > (abs birdPos.x) then -bird.dir.x else bird.dir.x
                 , y = if 1000 > (abs birdPos.y) then -bird.dir.y else bird.dir.y
             }
+
+        deadBirdMotion =
+            { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
+
         normalBirdMotion =
             { bird | pos = newNormalBirdPos, dir = newNormalBirdDir }
 
 
-        newDeadBirdPos = { birdPos | y = birdPos.y + birdDir.y * dt }
+        newDeadBirdPos =
+            { birdPos | y = birdPos.y + birdDir.y * dt }
 
-        newDeadBirdDir = { birdDir | y = birdDir.y - gravity * dt }
-
-        deadBirdMotion = { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
+        newDeadBirdDir =
+            { birdDir | y = birdDir.y - gravity * dt }
     in
         case bird.hit of
             -- Fall to the ground under gravity.
@@ -304,7 +328,7 @@ initialiseABird px py dx dy =
     , dir = { x = dx, y = dy }
     , bodyRadius = 30.0 -- Default value.
     , neckWidth = 5.0 -- Default value.
-    , neckHeight = 15.0 -- Default value.
+    , neckLength = 15.0 -- Default value.
     , hit = NotHit
     }
 
@@ -324,6 +348,124 @@ initialiseBirds time windowWidth windowHeight =
           (Random.float -1 1))
   in
     Tuple.first (Random.step birdsgen seed)
+
+collides : Arrow -> List Bird -> Maybe ( Int, Hit )
+collides arrow =
+    let
+        p =
+            arrow.pos
+
+        distSqr a b =
+            let
+                dx =
+                    a.x - b.x
+
+                dy =
+                    a.y - b.y
+            in
+                dx * dx + dy * dy
+
+        inBody bird =
+            distSqr arrow.pos bird.pos < (bird.bodyRadius * bird.bodyRadius)
+
+        inNeck bird =
+            let
+                facingLeft =
+                    bird.dir.x < 0
+
+                x =
+                    arrow.pos.x
+
+                y =
+                    arrow.pos.y
+
+                uy =
+                    bird.pos.y + bird.neckWidth
+
+                ly =
+                    bird.pos.y - bird.neckWidth
+
+                bodyNeck =
+                    bird.bodyRadius + bird.neckLength
+            in
+                (ly <= y && y <= uy)
+                    && if facingLeft then
+                        (((bird.pos.x - bodyNeck) <= x)
+                            && (x <= (bird.pos.x - bird.bodyRadius))
+                        )
+                       else
+                        (((bird.pos.x + bird.bodyRadius) <= x)
+                            && (x <= (bird.pos.x + bodyNeck))
+                        )
+    in
+        List.indexedMap
+            (\i bird ->
+                ( i
+                , if inBody bird then
+                    BodyHit
+                  else if inNeck bird then
+                    NeckHit
+                  else
+                    NotHit
+                )
+            )
+            >> List.filter (\( _, hit ) -> hit /= NotHit)
+            >> List.head
+
+
+lookup : a -> List ( a, b ) -> Maybe b
+lookup a list =
+    case list of
+        [] ->
+            Nothing
+
+        ( xa, xb ) :: xs ->
+            if a == xa then
+                Just xb
+            else
+                lookup a xs
+
+
+handleCollisions : Float -> List Arrow -> List Bird -> ( List Arrow, List Bird )
+handleCollisions ground arrows birds =
+    let
+        ( newArrows, results ) =
+            arrows
+                |> List.map
+                    (\arrow ->
+                        if arrow.pos.y < ground then
+                            ( { arrow | state = HitGround }
+                            , Nothing
+                            )
+                        else
+                            case collides arrow birds of
+                                Nothing ->
+                                    ( arrow, Nothing )
+
+                                Just result ->
+                                    ( { arrow | state = HitBird }
+                                    , Just result
+                                    )
+                    )
+                |> List.unzip
+
+        birdChanges =
+            List.filterMap identity results
+
+        newBirds =
+            birds
+                |> List.indexedMap
+                    (\i bird ->
+                        case lookup i birdChanges of
+                            Nothing ->
+                                bird
+
+                            Just hit ->
+                                { bird | hit = hit }
+                    )
+    in
+        ( newArrows, newBirds )
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
