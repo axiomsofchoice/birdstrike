@@ -48,7 +48,7 @@ type alias Bird =
 type alias Model =
     { score : Int
     , birds : List Bird
-    , arrow : List Arrow
+    , arrows : List Arrow
     , elevation : Float
     , windSpeed : Float
     }
@@ -62,9 +62,12 @@ initialModel : Model
 initialModel =
     { score = 0
     , birds = []
-    , arrow = []
+    , arrows = [
+      { pos = { x = 0.0, y = 0.0 }
+      , dir = { x = 0.0, y = 0.0 }
+      , state = Stored }]
     , elevation = 0.0
-    , windSpeed = 0.0
+    , windSpeed = 1.0
     }
 
 
@@ -100,10 +103,25 @@ view model =
             |> toHtml
 
 
+animationRate = 100 -- Speed animation up or down to improve game play.
+gravity = 9.8       -- The acceleration due to gravity.
+
+updateArrow dt windSpeed arrow =
+  let
+   arrowPos = arrow.pos
+   newArrowPos = {arrowPos | x = arrowPos.x - windSpeed + dt / animationRate
+                           , y = arrowPos.y - gravity + dt / animationRate }
+  in
+   { arrow | pos = newArrowPos }
+
+updateBird dt bird = bird
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick dt ->
-            ( { model | windSpeed = model.windSpeed + dt / 100 }
-            , Cmd.none
-            )
+             ( { model |
+                  arrows = List.map (updateArrow dt model.windSpeed) model.arrows
+                , birds = List.map (updateBird dt) model.birds}
+             , Cmd.none
+             )
