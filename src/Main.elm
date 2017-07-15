@@ -9,9 +9,48 @@ import Platform exposing (Program)
 import Time exposing (Time)
 
 
-type alias Model =
+type alias Vec =
     { x : Float
     , y : Float
+    }
+
+
+type ArrowState
+    = Stored
+    | Loading Time
+    | Flying
+    | HitBird
+    | HitGround
+
+
+type alias Arrow =
+    { pos : Vec
+    , dir : Vec
+    , state : ArrowState
+    }
+
+
+type Hit
+    = BodyHit
+    | NeckHit
+
+
+type alias Bird =
+    { pos : Vec
+    , dir : Vec
+    , bodyRadius : Float
+    , neckWidth : Float
+    , neckHeight : Float
+    , hit : Hit
+    }
+
+
+type alias Model =
+    { score : Int
+    , birds : List Bird
+    , arrow : List Arrow
+    , elevation : Float
+    , windSpeed : Float
     }
 
 
@@ -21,8 +60,11 @@ type Msg
 
 initialModel : Model
 initialModel =
-    { x = 0.0
-    , y = 0.0
+    { score = 0
+    , birds = []
+    , arrow = []
+    , elevation = 0.0
+    , windSpeed = 0.0
     }
 
 
@@ -48,8 +90,7 @@ view model =
         ball =
             circle 30
                 |> filled red
-                |> moveX model.x
-                |> moveY model.y
+                |> moveX model.windSpeed
 
         forms =
             [ ball ]
@@ -63,4 +104,6 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick dt ->
-            ( { model | x = model.x + dt / 100 }, Cmd.none )
+            ( { model | windSpeed = model.windSpeed + dt / 100 }
+            , Cmd.none
+            )
