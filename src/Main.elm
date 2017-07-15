@@ -54,7 +54,8 @@ type Loading
 
 
 type alias Model =
-    { score : Int
+    { globalTime : Time -- Maintain the time since start.
+    , score : Int
     , birds : List Bird
     , arrows : List Arrow
     , elevation : Float
@@ -77,7 +78,8 @@ type Msg
 
 initialModel : Model
 initialModel =
-    { score = 0
+    { globalTime = 0.0
+    , score = 0
     , birds = []
     , arrows = []
     , elevation = 0.0
@@ -265,11 +267,13 @@ shootArrow model =
             , arrows = newArrow :: model.arrows
         }
 
+windSpeedOffset = 10.0
+windSpeedAmplitude = 10.0
 
 updateTick : Time -> Model -> Model
 updateTick dt model =
     { model
-        | windSpeed = model.windSpeed + dt / 100
+        | windSpeed = windSpeedOffset + windSpeedAmplitude * sin model.globalTime
         , arrows = List.map (updateArrow dt model.windSpeed) model.arrows
         , birds = List.map (updateBird dt) model.birds
         , arrowLoad =
