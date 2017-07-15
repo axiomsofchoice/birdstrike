@@ -8,7 +8,9 @@ import Element exposing (toHtml)
 import Html exposing (Html, program)
 import Keyboard exposing (downs, ups)
 import Platform exposing (Program)
+import Random
 import Task
+import Tuple
 import Time exposing (Time)
 import Window exposing (Size, resizes, size)
 
@@ -54,7 +56,8 @@ type Loading
 
 
 type alias Model =
-    { score : Int
+    { globalTime : Time -- Maintain the time since start.
+    , score : Int
     , birds : List Bird
     , arrows : List Arrow
     , elevation : Float
@@ -73,11 +76,13 @@ type Msg
     = Tick Time
     | WindowSize Size
     | Key KeyMsg
+    | CurrentTime Time
 
 
 initialModel : Model
 initialModel =
-    { score = 0
+    { globalTime = 0.0
+    , score = 0
     , birds = []
     , arrows = []
     , elevation = 0.7
@@ -102,7 +107,8 @@ main =
     program
         { init =
             ( initialModel
-            , Task.perform WindowSize size
+            , Cmd.batch [ Task.perform WindowSize size
+                        , Task.perform CurrentTime Time.now]
             )
         , update = update
         , subscriptions = subscriptions
@@ -202,12 +208,18 @@ updateBird dt bird =
                 | x = birdPos.x + bird.dir.x * dt
                 , y = birdPos.y + bird.dir.y * dt
             }
+        newNormalBirdDir =
+            { birdDir
+                | x = if 1000 > (abs birdPos.x) then -bird.dir.x else bird.dir.x
+                , y = if 1000 > (abs birdPos.y) then -bird.dir.y else bird.dir.y
+            }
 
         deadBirdMotion =
             { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
 
         normalBirdMotion =
-            { bird | pos = newNormalBirdPos }
+            { bird | pos = newNormalBirdPos, dir = newNormalBirdDir }
+
 
         newDeadBirdPos =
             { birdPos | y = birdPos.y + birdDir.y * dt }
@@ -300,11 +312,14 @@ shootArrow model =
                     , arrows = newArrow :: model.arrows
                 }
 
+windSpeedOffset = 10.0
+windSpeedAmplitude = 10.0
 
 updateTick : Time -> Model -> Model
 updateTick dt model =
     { model
-        | windSpeed = model.windSpeed + dt / 100
+        | globalTime = model.globalTime + dt
+        , windSpeed = windSpeedOffset + windSpeedAmplitude * sin model.globalTime
         , arrows = List.map (updateArrow dt model.windSpeed) model.arrows
         , birds = List.map (updateBird dt) model.birds
         , arrowLoad =
@@ -316,6 +331,33 @@ updateTick dt model =
                     Loading (t + dt)
     }
 
+
+initialiseABird : Float -> Float -> Float -> Float -> Bird
+initialiseABird px py dx dy =
+    { pos = { x = px, y = py }
+    , dir = { x = dx, y = dy }
+    , bodyRadius = 30.0 -- Default value.
+    , neckWidth = 5.0 -- Default value.
+    , neckLength = 15.0 -- Default value.
+    , hit = NotHit
+    }
+
+numberOfBirdsRequired = 10
+
+initialiseBirds : Time -> Float -> Float -> List Bird
+initialiseBirds time windowWidth windowHeight =
+  let
+    seed = Random.initialSeed (round time)
+    birdsgen =
+    Random.list numberOfBirdsRequired
+      (Random.map4
+        initialiseABird
+          (Random.float -windowWidth windowWidth)
+          (Random.float -windowHeight windowHeight)
+          (Random.float -10 10)
+          (Random.float -1 1))
+  in
+    Tuple.first (Random.step birdsgen seed)
 
 collides : Arrow -> List Bird -> Maybe ( Int, Hit )
 collides arrow =
@@ -451,3 +493,6 @@ update msg model =
 
             Key key ->
                 return <| updateKey key model
+            
+            CurrentTime time ->
+                return <| { model | birds = initialiseBirds time (toFloat model.windowSize.width) (toFloat model.windowSize.height) }
