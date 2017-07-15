@@ -86,7 +86,6 @@ initialModel =
     , windowSize = Size 0 0
     }
 
-animationRate = 100.0 -- Speed animation up or down to improve game play.
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -190,8 +189,6 @@ updateBird dt bird =
         newDeadBirdPos = { birdPos | y = birdPos.y + birdDir.y * dt }
 
         newDeadBirdDir = { birdDir | y = birdDir.y - gravity * dt }
-        deadBirdMotion =
-            { bird | pos = newDeadBirdPos }
     in
         case bird.hit of
             -- Fall to the ground under gravity.
