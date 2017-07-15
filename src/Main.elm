@@ -8,7 +8,9 @@ import Element exposing (toHtml)
 import Html exposing (Html, program)
 import Keyboard exposing (downs, ups)
 import Platform exposing (Program)
+import Random
 import Task
+import Tuple
 import Time exposing (Time)
 import Window exposing (Size, resizes, size)
 
@@ -74,6 +76,7 @@ type Msg
     = Tick Time
     | WindowSize Size
     | Key KeyMsg
+    | CurrentTime Time
 
 
 initialModel : Model
@@ -104,7 +107,8 @@ main =
     program
         { init =
             ( initialModel
-            , Task.perform WindowSize size
+            , Cmd.batch [ Task.perform WindowSize size
+                        , Task.perform CurrentTime Time.now]
             )
         , update = update
         , subscriptions = subscriptions
@@ -287,6 +291,33 @@ updateTick dt model =
     }
 
 
+initialiseABird : Float -> Float -> Float -> Float -> Bird
+initialiseABird px py dx dy =
+    { pos = { x = px, y = py }
+    , dir = { x = dx, y = dy }
+    , bodyRadius = 30.0 -- Default value.
+    , neckWidth = 5.0 -- Default value.
+    , neckHeight = 15.0 -- Default value.
+    , hit = NotHit
+    }
+
+numberOfBirdsRequired = 10
+
+initialiseBirds : Time -> Float -> Float -> List Bird
+initialiseBirds time windowWidth windowHeight =
+  let
+    seed = Random.initialSeed (round time)
+    birdsgen =
+    Random.list numberOfBirdsRequired
+      (Random.map4
+        initialiseABird
+          (Random.float -windowWidth windowWidth)
+          (Random.float -windowHeight windowHeight)
+          (Random.float -10 10)
+          (Random.float -1 1))
+  in
+    Tuple.first (Random.step birdsgen seed)
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
@@ -303,3 +334,6 @@ update msg model =
 
             Key key ->
                 return <| updateKey key model
+            
+            CurrentTime time ->
+                return <| { model | birds = initialiseBirds time (toFloat model.windowSize.width) (toFloat model.windowSize.height) }
