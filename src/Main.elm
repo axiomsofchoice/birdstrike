@@ -180,21 +180,28 @@ updateBird dt bird =
     let
         birdPos =
             bird.pos
-        birdDir = bird.dir
+        birdDir =
+            bird.dir
 
         newNormalBirdPos =
             { birdPos
                 | x = birdPos.x + bird.dir.x * dt
                 , y = birdPos.y + bird.dir.y * dt
             }
-
-        deadBirdMotion = { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
+        newNormalBirdDir =
+            { birdDir
+                | x = if 1000 > (abs birdPos.x) then -bird.dir.x else bird.dir.x
+                , y = if 1000 > (abs birdPos.y) then -bird.dir.y else bird.dir.y
+            }
         normalBirdMotion =
-            { bird | pos = newNormalBirdPos }
+            { bird | pos = newNormalBirdPos, dir = newNormalBirdDir }
+
 
         newDeadBirdPos = { birdPos | y = birdPos.y + birdDir.y * dt }
 
         newDeadBirdDir = { birdDir | y = birdDir.y - gravity * dt }
+
+        deadBirdMotion = { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
     in
         case bird.hit of
             -- Fall to the ground under gravity.
