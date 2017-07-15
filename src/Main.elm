@@ -80,7 +80,7 @@ initialModel =
     { score = 0
     , birds = []
     , arrows = []
-    , elevation = 0.0
+    , elevation = 0.7
     , arrowLoad = Ready
     , windSpeed = 0.00001
     , windowSize = Size 0 0
@@ -144,7 +144,7 @@ view model =
         --arrowSprites ++ birdSprites
     in
         forms
-            |> collage model.windowSize.width 400
+            |> collage model.windowSize.width model.windowSize.height
             |> toHtml
 
 
@@ -272,23 +272,33 @@ updateKey key model =
 
 shootArrow : Model -> Model
 shootArrow model =
-    let
-        dir =
-            { x = 0, y = 0 }
+    case model.arrowLoad of
+        Ready ->
+            model
 
-        newArrow =
-            { pos =
-                { x = negate (toFloat model.windowSize.width) / 2
-                , y = negate (toFloat model.windowSize.height) / 2
+        Loading dt ->
+            let
+                speed =
+                    min 3 dt
+
+                dir =
+                    { x = 50 * speed * cos model.elevation
+                    , y = 50 * speed * sin model.elevation
+                    }
+
+                newArrow =
+                    { pos =
+                        { x = negate (toFloat model.windowSize.width) / 2
+                        , y = negate (toFloat model.windowSize.height) / 2
+                        }
+                    , dir = dir
+                    , state = Flying
+                    }
+            in
+                { model
+                    | arrowLoad = Ready
+                    , arrows = newArrow :: model.arrows
                 }
-            , dir = dir
-            , state = Flying
-            }
-    in
-        { model
-            | arrowLoad = Ready
-            , arrows = newArrow :: model.arrows
-        }
 
 
 updateTick : Time -> Model -> Model
