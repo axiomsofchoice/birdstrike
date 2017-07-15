@@ -82,15 +82,16 @@ initialModel =
     , arrows = []
     , elevation = 0.0
     , arrowLoad = Ready
-    , windSpeed = 1.0
+    , windSpeed = 0.00001
     , windowSize = Size 0 0
     }
 
+animationRate = 100.0 -- Speed animation up or down to improve game play.
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ diffs Tick
+        [ diffs ( \ dt -> Tick (dt / animationRate))
         , resizes WindowSize
         , downs (Key << Down)
         , ups (Key << Up)
@@ -114,22 +115,31 @@ groundLevel : Float -> Float
 groundLevel height =
     -height / 3
 
+buildArrowView : Arrow -> Form
+buildArrowView arrow =
+            rect 30 5
+                |> filled red
+                |> rotate (atan2 arrow.dir.y arrow.dir.x)
+                |> moveX arrow.pos.x
+                |> moveY arrow.pos.y
+
+buildBirdView : Bird -> Form
+buildBirdView bird = circle 30 |> filled red
 
 view : Model -> Html Msg
 view model =
     let
-        ball =
-            circle 30
-                |> filled red
-                |> moveX model.windSpeed
+        arrowSprites = List.map buildArrowView model.arrows
+        
+        birdSprites = List.map buildBirdView model.birds
 
         forms =
-            [ ball ]
+            arrowSprites
+            --arrowSprites ++ birdSprites
     in
         forms
             |> collage model.windowSize.width 400
             |> toHtml
-
 
 
 -- Speed animation up or down to improve game play.
@@ -152,14 +162,12 @@ updateArrow dt windSpeed arrow =
     let
         arrowPos =
             arrow.pos
-
-        newArrowPos =
-            { arrowPos
-                | x = arrowPos.x - windSpeed + dt / animationRate
-                , y = arrowPos.y - gravity + dt / animationRate
-            }
+        arrowDir = arrow.dir
+        newArrowPos = { arrowPos | x = arrowPos.x + (arrowDir.x - windSpeed) * dt
+                                 , y = arrowPos.y + arrowDir.y * dt }
+        newArrowDir = { arrowDir | y = arrowDir.y - gravity * dt }
     in
-        { arrow | pos = newArrowPos }
+      { arrow | pos = newArrowPos, dir = newArrowDir }
 
 
 updateBird : Float -> Bird -> Bird
@@ -167,6 +175,7 @@ updateBird dt bird =
     let
         birdPos =
             bird.pos
+        birdDir = bird.dir
 
         newNormalBirdPos =
             { birdPos
@@ -174,12 +183,13 @@ updateBird dt bird =
                 , y = birdPos.y + bird.dir.y * dt
             }
 
+        deadBirdMotion = { bird | pos = newDeadBirdPos, dir = newDeadBirdDir }
         normalBirdMotion =
             { bird | pos = newNormalBirdPos }
 
-        newDeadBirdPos =
-            { birdPos | y = birdPos.y - gravity * dt }
+        newDeadBirdPos = { birdPos | y = birdPos.y + birdDir.y * dt }
 
+        newDeadBirdDir = { birdDir | y = birdDir.y - gravity * dt }
         deadBirdMotion =
             { bird | pos = newDeadBirdPos }
     in
