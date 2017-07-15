@@ -117,19 +117,18 @@ updateArrow dt windSpeed arrow =
 
 updateBird : Float -> Bird -> Bird
 updateBird dt bird =
-  case bird.hit of
-    -- Fall to the ground under gravity.
-    BodyHit -> bird
-    -- Also continue flying along in a straight line.
-    NeckHit -> bird
-    -- Just continue flying along in a straight line.
-    NotHit ->
-      let
-        birdPos = bird.pos
-        newBirdPos = {birdPos | x = birdPos.x + bird.dir.x * dt
-                              , y = birdPos.y + bird.dir.y * dt }
-      in
-        { bird | pos = newBirdPos }
+  let
+    birdPos = bird.pos
+    newNormalBirdPos = {birdPos | x = birdPos.x + bird.dir.x * dt
+                          , y = birdPos.y + bird.dir.y * dt }
+    normalBirdMotion = { bird | pos = newNormalBirdPos }
+    newDeadBirdPos = { birdPos | y = birdPos.y - gravity * dt }
+    deadBirdMotion = { bird | pos = newDeadBirdPos }
+  in
+    case bird.hit of
+      BodyHit -> deadBirdMotion   -- Fall to the ground under gravity.
+      NeckHit -> normalBirdMotion -- Also continue flying along in a straight line.
+      NotHit -> normalBirdMotion  -- Just continue flying along in a straight line.
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
