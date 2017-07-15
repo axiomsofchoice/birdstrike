@@ -273,7 +273,8 @@ windSpeedAmplitude = 10.0
 updateTick : Time -> Model -> Model
 updateTick dt model =
     { model
-        | windSpeed = windSpeedOffset + windSpeedAmplitude * sin model.globalTime
+        | globalTime = model.globalTime + dt
+        , windSpeed = windSpeedOffset + windSpeedAmplitude * sin model.globalTime
         , arrows = List.map (updateArrow dt model.windSpeed) model.arrows
         , birds = List.map (updateBird dt) model.birds
         , arrowLoad =
